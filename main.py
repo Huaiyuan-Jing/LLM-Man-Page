@@ -4,6 +4,12 @@ import tempfile
 import shutil
 from openai import OpenAI
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+OpenAI.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI()
 
 
 @click.command()
@@ -26,12 +32,11 @@ def generate_doc(repo_url):
 
 def generate_summary_via_llm(code):
     prompt = f"以下是一段Python代码，请生成一个简洁明了的中文文档，描述其功能和使用方法：\n\n{code}\n\n文档："
-    response = openai.ChatCompletion.create(
-        model="gpt-4o", messages=[{"role": "user", "content": prompt}], temperature=0.3
+    response = client.responses.create(
+        model="gpt-4.1", input=prompt
     )
-    return response.choices[0].message.content.strip()
+    return response.output_text
 
 
 if __name__ == "__main__":
-
     generate_doc()
