@@ -1,7 +1,6 @@
 import click
 import git
 import tempfile
-import shutil
 from openai import OpenAI
 from pathlib import Path
 import os
@@ -21,11 +20,10 @@ def generate_doc(repo_url):
         click.echo(f"Analyzing project...")
         files = list(Path(tmpdir).rglob("*.py"))
         click.echo(f"Found Python files: {len(files)}")
-        for file in files[:3]:  # 限制文件数目，便于演示
+        for file in files[:3]:
             click.echo(f"\nProcessing {file.relative_to(tmpdir)}:")
             with open(file, "r") as f:
                 code = f.read()
-            # 调用 LLM（例如OpenAI API）生成文档（此处用伪代码）
             summary = generate_summary_via_llm(code)
             click.echo(f"{summary}")
 
