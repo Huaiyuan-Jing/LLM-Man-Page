@@ -10,6 +10,7 @@ use std::io::{self};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -111,6 +112,12 @@ fn main() -> io::Result<()> {
     }
     if let Some(man_cmd) = args.man {
         let raw = fetch_man_page(&man_cmd).expect("Fail to get man page info");
+        let spinner = ProgressBar::new_spinner();
+        spinner.set_message("Generating improved man page…");
+        spinner.enable_steady_tick(std::time::Duration::from_millis(100));
+        spinner.set_style(
+            ProgressStyle::with_template("{spinner:.green} {msg}").unwrap()
+        );
         let reformatted = get_gpt_response(&format!(
             "Here is the man page for `{}`:\n{}\n\nrewrite it to generate a more readable and clear version, and get the full rewrite of this entire man page. And use plain text instead of markdown format",
             man_cmd, raw
