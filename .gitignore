@@ -1,3 +1,7 @@
 .venv
 LLM-Man-Page.code-workspace
 .env
+
+# Added by cargo
+
+/target
