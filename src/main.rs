@@ -83,10 +83,7 @@ fn load_key() -> Option<String> {
 fn fetch_man_page(cmd: &str) -> Result<String, Box<dyn Error>> {
     let url = format!("https://man7.org/linux/man-pages/man1/{}.1.html", cmd);
     let res = reqwest::blocking::get(url)?.text()?;
-
     let document = Html::parse_document(&res);
-
-    // man7.org 的 man page 通常包在 <pre> 标签内
     let sel = Selector::parse("pre").unwrap();
     if let Some(element) = document.select(&sel).next() {
         let man_text = element.text().collect::<Vec<_>>().join("\n");
