@@ -2,6 +2,9 @@ use clap::Parser;
 use home;
 use openai_api_rust::chat::*;
 use openai_api_rust::*;
+use reqwest;
+use scraper::{Html, Selector};
+use std::error::Error;
 use std::fs;
 use std::io::{self};
 #[cfg(unix)]
@@ -22,6 +25,9 @@ struct Args {
     /// Save or Update OpenAI API key
     #[arg(long)]
     key: Option<String>,
+    /// Command you want to check
+    #[arg(short, long)]
+    man: Option<String>,
 }
 
 fn get_gpt_response(prompt: &String) -> String {
@@ -30,7 +36,7 @@ fn get_gpt_response(prompt: &String) -> String {
     let body = ChatBody {
         model: "gpt-4.1".to_string(),
         max_tokens: None,
-        temperature: Some(0.8_f32),
+        temperature: Some(0.2_f32),
         top_p: Some(0.2_f32),
         n: Some(2),
         stream: Some(false),
@@ -74,25 +80,46 @@ fn load_key() -> Option<String> {
     fs::read_to_string(path).ok()
 }
 
+fn fetch_man_page(cmd: &str) -> Result<String, Box<dyn Error>> {
+    let url = format!("https://man7.org/linux/man-pages/man1/{}.1.html", cmd);
+    let res = reqwest::blocking::get(url)?.text()?;
+
+    let document = Html::parse_document(&res);
+
+    // man7.org 的 man page 通常包在 <pre> 标签内
+    let sel = Selector::parse("pre").unwrap();
+    if let Some(element) = document.select(&sel).next() {
+        let man_text = element.text().collect::<Vec<_>>().join("\n");
+        Ok(man_text)
+    } else {
+        Err("Cannot get man info".into())
+    }
+}
+
 fn main() -> io::Result<()> {
     let args = Args::parse();
-
     if let Some(key) = args.key {
         save_key(&key).expect("Fail to save key");
         println!("OPENAI_API_KEY saved");
         return Ok(());
     }
-
-    let prompt = args
-        .prompt
-        .expect("No prompt detected, run --help to see how to use it");
-
     let key = load_key().unwrap_or_else(|| {
         eprintln!("No valid OPENAI_API_KEY detected");
         std::process::exit(1);
     });
     unsafe { std::env::set_var("OPENAI_API_KEY", key) };
-
-    println!("{}", get_gpt_response(&prompt));
+    if let Some(prompt) = args.prompt {
+        println!("{}", get_gpt_response(&prompt));
+        return Ok(());
+    }
+    if let Some(man_cmd) = args.man {
+        let raw = fetch_man_page(&man_cmd).expect("Fail to get man page info");
+        let reformatted = get_gpt_response(&format!(
+            "Here is the man page for `{}`:\n{}\n\nrewrite it to generate a more readable and clear version, and get the full rewrite of this entire man page. And use plain text instead of markdown format",
+            man_cmd, raw
+        ));
+        println!("{}", reformatted);
+        return Ok(());
+    }
     Ok(())
 }
