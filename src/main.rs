@@ -20,9 +20,6 @@ use indicatif::{ProgressBar, ProgressStyle};
     arg_required_else_help = true
 )]
 struct Args {
-    /// Prompt you want to send to GPT
-    #[arg(short, long)]
-    prompt: Option<String>,
     /// Save or Update OpenAI API key
     #[arg(long)]
     key: Option<String>,
@@ -105,10 +102,6 @@ fn main() -> io::Result<()> {
         std::process::exit(1);
     });
     unsafe { std::env::set_var("OPENAI_API_KEY", key) };
-    if let Some(prompt) = args.prompt {
-        println!("{}", get_gpt_response(&prompt));
-        return Ok(());
-    }
     if let Some(man_cmd) = args.man {
         let raw = fetch_man_page(&man_cmd).expect("Fail to get man page info");
         let spinner = ProgressBar::new_spinner();
