@@ -27,7 +27,6 @@ struct Args {
     #[arg(long)]
     key: Option<String>,
     /// Command you want to check
-    #[arg(short, long)]
     man: Option<String>,
 }
 
