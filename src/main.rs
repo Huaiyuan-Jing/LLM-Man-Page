@@ -1,5 +1,6 @@
 use clap::Parser;
 use home;
+use indicatif::{ProgressBar, ProgressStyle};
 use openai_api_rust::chat::*;
 use openai_api_rust::*;
 use reqwest;
@@ -10,7 +11,6 @@ use std::io::{self};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
-use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -34,7 +34,7 @@ fn get_gpt_response(prompt: &String) -> String {
         model: "gpt-4.1".to_string(),
         max_tokens: None,
         temperature: Some(0.2_f32),
-        top_p: Some(0.2_f32),
+        top_p: Some(0.1_f32),
         n: Some(2),
         stream: Some(false),
         stop: None,
@@ -107,11 +107,14 @@ fn main() -> io::Result<()> {
         let spinner = ProgressBar::new_spinner();
         spinner.set_message("Generating improved man page…");
         spinner.enable_steady_tick(std::time::Duration::from_millis(100));
-        spinner.set_style(
-            ProgressStyle::with_template("{spinner:.green} {msg}").unwrap()
-        );
+        spinner.set_style(ProgressStyle::with_template("{spinner:.green} {msg}").unwrap());
         let reformatted = get_gpt_response(&format!(
-            "Here is the man page for `{}`:\n{}\n\nrewrite it to generate a more readable and clear version, and get the full rewrite of this entire man page. And use plain text instead of markdown format",
+            "Here is the man page for `{}`:[{}]
+            rewrite it to generate a more readable and clear version, and get the full rewrite of this entire man page. Remember to include specific usage examples and make sure all the information is accurate and complete. 
+            And use plain text instead of markdown format.
+            You are an agent - please keep going until the user’s query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved.
+            If you are not sure about file content or codebase structure pertaining to the user’s request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.
+            Directly return the content without any other useless information. Do not include any additional text after your response.",
             man_cmd, raw
         ));
         println!("{}", reformatted);
