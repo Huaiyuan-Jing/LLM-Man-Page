@@ -168,8 +168,7 @@ async fn main() -> io::Result<()> {
             "Here is the man page for `{}`:[{}]
             rewrite it to generate a more readable and clear version, and get the full rewrite of this entire man page. Remember to include specific usage examples and make sure all the information is accurate and complete. 
             And use plain text instead of markdown format.
-            You are an agent - please keep going until the user’s query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved.
-            If you are not sure about file content or codebase structure pertaining to the user’s request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.
+            If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.
             Directly return the content without any other useless information. Do not include any additional text after your response.",
             man_cmd, raw
         );
