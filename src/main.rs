@@ -1,10 +1,13 @@
 use clap::Parser;
 use home;
 use indicatif::{ProgressBar, ProgressStyle};
+use ollama_rs::Ollama;
+use ollama_rs::generation::completion::request::GenerationRequest;
 use openai_api_rust::chat::*;
 use openai_api_rust::*;
 use reqwest;
 use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs;
 use std::io::{self};
@@ -23,15 +26,27 @@ struct Args {
     /// Save or Update OpenAI API key
     #[arg(long)]
     key: Option<String>,
+    /// Set LLM engine: 'openai' or 'ollama'
+    #[arg(long)]
+    engine: Option<String>,
+    /// Set model name for LLM, e.g. 'gpt-4-turbo' or 'llama3'
+    #[arg(long)]
+    model: Option<String>,
     /// Command you want to check
     man: Option<String>,
 }
 
-fn get_gpt_response(prompt: &String) -> String {
+async fn get_ollama_response(prompt: &String, model: &String) -> String {
+    let ollama = Ollama::default();
+    let res = ollama.generate(GenerationRequest::new(model.clone(), prompt));
+    res.await.unwrap().response
+}
+
+fn get_gpt_response(prompt: &String, model: &String) -> String {
     let auth = Auth::from_env().unwrap();
     let openai = OpenAI::new(auth, "https://api.openai.com/v1/");
     let body = ChatBody {
-        model: "gpt-4.1".to_string(),
+        model: model.clone(),
         max_tokens: None,
         temperature: Some(0.2_f32),
         top_p: Some(0.1_f32),
@@ -90,17 +105,58 @@ fn fetch_man_page(cmd: &str) -> Result<String, Box<dyn Error>> {
     }
 }
 
-fn main() -> io::Result<()> {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct LlmConfig {
+    engine: String, // "openai" or "ollama"
+    model: String,  // model name, e.g. "gpt-4-turbo", "llama3"
+}
+
+fn get_config_file() -> PathBuf {
+    let mut path = home::home_dir().expect("Cannot access home dir");
+    path.push(".llm_man_page_config.json");
+    path
+}
+
+fn save_config(cfg: &LlmConfig) -> io::Result<()> {
+    let path = get_config_file();
+    let s = serde_json::to_string_pretty(cfg).unwrap();
+    fs::write(&path, s)?;
+    Ok(())
+}
+
+fn load_config() -> Option<LlmConfig> {
+    let path = get_config_file();
+    let s = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&s).ok()
+}
+
+#[tokio::main]
+async fn main() -> io::Result<()> {
     let args = Args::parse();
     if let Some(key) = args.key {
         save_key(&key).expect("Fail to save key");
         println!("OPENAI_API_KEY saved");
         return Ok(());
     }
-    let key = load_key().unwrap_or_else(|| {
-        eprintln!("No valid OPENAI_API_KEY detected");
-        std::process::exit(1);
+    let mut cfg = load_config().unwrap_or_else(|| LlmConfig {
+        engine: "openai".to_string(),
+        model: "gpt-4-turbo".to_string(),
     });
+    if let Some(engine) = args.engine {
+        cfg.engine = engine;
+    }
+    if let Some(model) = args.model {
+        cfg.model = model;
+    }
+    save_config(&cfg)?;
+    let key = if cfg.engine == "openai" {
+        load_key().unwrap_or_else(|| {
+            eprintln!("No valid OPENAI_API_KEY detected");
+            std::process::exit(1);
+        })
+    } else {
+        String::new()
+    };
     unsafe { std::env::set_var("OPENAI_API_KEY", key) };
     if let Some(man_cmd) = args.man {
         let raw = fetch_man_page(&man_cmd).expect("Fail to get man page info");
@@ -108,7 +164,7 @@ fn main() -> io::Result<()> {
         spinner.set_message("Generating improved man page…");
         spinner.enable_steady_tick(std::time::Duration::from_millis(100));
         spinner.set_style(ProgressStyle::with_template("{spinner:.green} {msg}").unwrap());
-        let reformatted = get_gpt_response(&format!(
+        let prompt = format!(
             "Here is the man page for `{}`:[{}]
             rewrite it to generate a more readable and clear version, and get the full rewrite of this entire man page. Remember to include specific usage examples and make sure all the information is accurate and complete. 
             And use plain text instead of markdown format.
@@ -116,7 +172,12 @@ fn main() -> io::Result<()> {
             If you are not sure about file content or codebase structure pertaining to the user’s request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.
             Directly return the content without any other useless information. Do not include any additional text after your response.",
             man_cmd, raw
-        ));
+        );
+        let reformatted = match cfg.engine.as_str() {
+            "ollama" => get_ollama_response(&prompt, &cfg.model).await,
+            "openai" | _ => get_gpt_response(&prompt, &cfg.model),
+        };
+        spinner.finish_and_clear();
         println!("{}", reformatted);
         return Ok(());
     }
