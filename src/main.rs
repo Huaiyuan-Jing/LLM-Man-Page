@@ -5,15 +5,13 @@ use ollama_rs::Ollama;
 use ollama_rs::generation::completion::request::GenerationRequest;
 use openai_api_rust::chat::*;
 use openai_api_rust::*;
-use reqwest;
-use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::fs;
-use std::io::{self};
+use std::io::{self, Write};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::process::Command;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -92,17 +90,30 @@ fn load_key() -> Option<String> {
     fs::read_to_string(path).ok()
 }
 
-fn fetch_man_page(cmd: &str) -> Result<String, Box<dyn Error>> {
-    let url = format!("https://man7.org/linux/man-pages/man1/{}.1.html", cmd);
-    let res = reqwest::blocking::get(url)?.text()?;
-    let document = Html::parse_document(&res);
-    let sel = Selector::parse("pre").unwrap();
-    if let Some(element) = document.select(&sel).next() {
-        let man_text = element.text().collect::<Vec<_>>().join("\n");
-        Ok(man_text)
-    } else {
-        Err("Cannot get man info".into())
+fn fetch_man_page(cmd: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let man_output = Command::new("man").arg(cmd).output()?;
+    if !man_output.status.success() {
+        return Err(format!("Failed to get man page for {}", cmd).into());
     }
+
+    let mut col = Command::new("col")
+        .arg("-b")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()?;
+
+    if let Some(stdin) = col.stdin.as_mut() {
+        stdin.write(&man_output.stdout)?;
+    } else {
+        return Err("Failed to open stdin for col".into());
+    }
+
+    let output = col.wait_with_output()?;
+    if !output.status.success() {
+        return Err("col -b failed".into());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -165,13 +176,14 @@ async fn main() -> io::Result<()> {
         spinner.enable_steady_tick(std::time::Duration::from_millis(100));
         spinner.set_style(ProgressStyle::with_template("{spinner:.green} {msg}").unwrap());
         let prompt = format!(
-            "Here is the man page for `{}`:[{}]
-            rewrite it to generate a more readable and clear version, and get the full rewrite of this entire man page. Remember to include specific usage examples and make sure all the information is accurate and complete. 
-            And use plain text instead of markdown format.
-            If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.
-            Directly return the content without any other useless information. Do not include any additional text after your response.",
-            man_cmd, raw
-        );
+            "Here is the man page for {}: [{}]\n
+            1. rewrite the explanation part of each command, remember don't change any other content.\n
+            2. add example of usage after explaination of commands.\n
+            3. double check to make sure you contains all the commands and explain them correctly.\n
+            If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.\n
+            Directly return the content without any other useless information. Do not include any additional text after your response.\n",
+                man_cmd, raw
+            );
         let reformatted = match cfg.engine.as_str() {
             "ollama" => get_ollama_response(&prompt, &cfg.model).await,
             "openai" | _ => get_gpt_response(&prompt, &cfg.model),
