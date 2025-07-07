@@ -21,13 +21,38 @@ It automatically fetches the official man page for any command and uses GPT to r
 
 ### 1. Install
 
+**Note**: `install.sh` has only been tested on Fedora Workstation 42, but should work on other Linux distributions.
+
 You need [Rust](https://www.rust-lang.org/) installed.
 
+First clone the repository and change current working directory:
+
 ```sh
-git clone https://github.com/yourname/llm-man-page.git
-cd llm-man-page
-cargo build --release
+git clone https://github.com/Huaiyuan-Jing/LLM-Man-Page
+cd LLM-Man-Page
 ```
+
+To just install for the current user (provided that Rust is installed to `~/.cargo/`, which is the default setup with official Rust installation script):
+
+```sh
+./install.sh
+```
+
+`llman` binary will be installed to `~/.cargo/bin/`
+
+To install for all users (requires root privilege):
+
+```sh
+./install.sh --system
+```
+
+To install with debug info (can combine with `--system` option):
+
+```sh
+./install.sh --debug
+```
+
+Tips: run `./install.sh --help` to explore more options
 
 ### 2. Configure Engine and Model
 
@@ -61,3 +86,21 @@ llman grep
 ```
 
 Result: Directly outputs a more readable man page for the command.
+
+### 4. Uninstall
+
+We recommend you to work with `install.sh` to uninstall `llman`, if you have no idea about what happened during installation.
+
+If you installed only for the current user, run:
+
+```sh
+./install.sh --uninstall
+```
+
+`llman` will be removed from `~/.cargo/bin/`
+
+If you installed for all users, run (requires root privilege):
+
+```sh
+./install.sh --uninstall --system
+```
