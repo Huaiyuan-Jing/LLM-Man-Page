@@ -29,13 +29,25 @@ cd llm-man-page
 cargo build --release
 ```
 
-### 2. Configure OpenAI API Key
+### 2. Configure Engine and Model
 
-Set your OpenAI API key the first time (only needed once):
+Set the LLM service, replace `<name-of-service>` with 'openai' or 'ollama':
 
 ```sh
-llman --key sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+llman --engine <name-of-service>
 
+```
+
+Set the model, replace `<name-of-model>` with the model that your service support, like 'gpt-4-turbo' for 'openai'
+
+```sh
+llman --model <name-of-model>
+```
+
+If you use 'openai' as LLM service, you need to setup your api key by following command, replace `<key>` with your openai api key like 'sk-xxxxxxxxxxxxxxxxxxxx':
+
+```sh
+llman --key <key>
 ```
 
 ### 3. Usage
