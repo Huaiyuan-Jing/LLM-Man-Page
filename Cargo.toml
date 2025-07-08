@@ -7,8 +7,6 @@ edition = "2024"
 openai_api_rust = "0.1.9"
 clap = { version = "4.5", features = ["derive"] } 
 home = "0.5.11"
-reqwest = {version = "0.12.22", features = ["blocking"]}
-scraper = "0.23.1"
 indicatif = "0.18.0"
 ollama-rs = "0.3.2"
 serde = { version = "1.0", features = ["derive"] }
