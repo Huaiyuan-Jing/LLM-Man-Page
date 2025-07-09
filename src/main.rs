@@ -8,7 +8,7 @@ use openai_api_rust::chat::*;
 use openai_api_rust::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -83,25 +83,7 @@ fn fetch_man_page(cmd: &str) -> Result<String, Box<dyn std::error::Error>> {
     if !man_output.status.success() {
         return Err(format!("Failed to get man page for {}", cmd).into());
     }
-
-    let mut col = Command::new("col")
-        .arg("-b")
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()?;
-
-    if let Some(stdin) = col.stdin.as_mut() {
-        stdin.write(&man_output.stdout)?;
-    } else {
-        return Err("Failed to open stdin for col".into());
-    }
-
-    let output = col.wait_with_output()?;
-    if !output.status.success() {
-        return Err("col -b failed".into());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    Ok(String::from_utf8_lossy(&man_output.stdout).to_string())
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
