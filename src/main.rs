@@ -23,7 +23,7 @@ struct Args {
     /// Save or Update OpenAI API key
     #[arg(long)]
     key: Option<String>,
-    /// Set LLM engine: 'openai' or 'ollama'
+    /// Set LLM engine: 'openai', 'ollama' or 'google'
     #[arg(long)]
     engine: Option<String>,
     /// Set model name for LLM, e.g. 'gpt-4-turbo' or 'llama3'
