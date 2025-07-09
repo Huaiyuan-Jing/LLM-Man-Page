@@ -145,12 +145,15 @@ fn make_app_folder() -> io::Result<()> {
             Err(e) => return Err(e),
         }
     }
-    
-    // file exist, test if it's a dir
+
+    // file exist, test if it's a diri
     if path.is_dir() {
         Ok(())
     } else {
-        Err(io::Error::new(io::ErrorKind::AlreadyExists, "A common file with the same name already exists."))
+        Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "A common file with the same name already exists.",
+        ))
     }
 }
 
