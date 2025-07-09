@@ -113,7 +113,7 @@ struct LlmConfig {
 }
 
 fn get_config_file() -> PathBuf {
-    let mut path = home::home_dir().expect("Cannot access home dir");
+    let mut path = get_app_folder();
     path.push(".llm_man_page_config.json");
     path
 }
@@ -131,8 +131,35 @@ fn load_config() -> Option<LlmConfig> {
     serde_json::from_str(&s).ok()
 }
 
+fn get_app_folder() -> PathBuf {
+    let mut path = home::home_dir().expect("Cannot access home dir");
+    path.push(".llman");
+    path
+}
+
+fn make_app_folder() -> io::Result<()> {
+    let path = get_app_folder();
+    if !path.exists() {
+        match fs::create_dir(path) {
+            Ok(()) => return Ok(()),
+            Err(e) => return Err(e),
+        }
+    }
+    
+    // file exist, test if it's a dir
+    if path.is_dir() {
+        Ok(())
+    } else {
+        Err(io::Error::new(io::ErrorKind::AlreadyExists, "A common file with the same name already exists."))
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), ()> {
+    // make app folder first
+    make_app_folder().unwrap();
+
+    // then parse cmdline args
     let args = Args::parse();
     let key = args.key;
     let mut cfg = load_config().unwrap_or_else(|| LlmConfig {
