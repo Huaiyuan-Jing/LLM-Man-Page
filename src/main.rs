@@ -1,4 +1,5 @@
 use clap::Parser;
+use gemini_rust::Gemini;
 use home;
 use indicatif::{ProgressBar, ProgressStyle};
 use ollama_rs::Ollama;
@@ -8,8 +9,6 @@ use openai_api_rust::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, Write};
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -55,8 +54,8 @@ fn get_gpt_response(prompt: &String, model: &String) -> String {
         frequency_penalty: None,
         logit_bias: None,
         user: None,
-        messages: vec![Message {
-            role: Role::User,
+        messages: vec![openai_api_rust::Message {
+            role: openai_api_rust::Role::User,
             content: prompt.clone(),
         }],
     };
@@ -66,28 +65,17 @@ fn get_gpt_response(prompt: &String, model: &String) -> String {
     message.content.clone()
 }
 
-fn get_key_file() -> PathBuf {
-    let mut path = home::home_dir().expect("Cannot access home dir");
-    path.push(".openai_api_key");
-    path
-}
+async fn get_google_response(prompt: &String) -> String {
+    let client = Gemini::new(&std::env::var("GEMINI_API_KEY").unwrap());
 
-fn save_key(key: &str) -> io::Result<()> {
-    let path = get_key_file();
-    fs::write(&path, key)?;
-    let mut perms = fs::metadata(&path)?.permissions();
-    #[cfg(unix)]
-    perms.set_mode(0o600);
-    fs::set_permissions(&path, perms)?;
-    Ok(())
-}
-
-fn load_key() -> Option<String> {
-    if let Ok(k) = std::env::var("OPENAI_API_KEY") {
-        return Some(k);
-    }
-    let path = get_key_file();
-    fs::read_to_string(path).ok()
+    let response = client
+        .generate_content()
+        .with_system_prompt("You are a helpful assistant.")
+        .with_user_message(prompt.clone())
+        .execute()
+        .await
+        .unwrap();
+    response.text()
 }
 
 fn fetch_man_page(cmd: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -118,8 +106,10 @@ fn fetch_man_page(cmd: &str) -> Result<String, Box<dyn std::error::Error>> {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct LlmConfig {
-    engine: String, // "openai" or "ollama"
-    model: String,  // model name, e.g. "gpt-4-turbo", "llama3"
+    engine: String,             // "openai" or "ollama"
+    model: String,              // model name, e.g. "gpt-4-turbo", "llama3"
+    openai_key: Option<String>, // OpenAI API key, if using OpenAI
+    gemini_key: Option<String>, // Gemini API key, if using Gemini
 }
 
 fn get_config_file() -> PathBuf {
@@ -142,34 +132,37 @@ fn load_config() -> Option<LlmConfig> {
 }
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
+async fn main() -> Result<(), ()> {
     let args = Args::parse();
-    if let Some(key) = args.key {
-        save_key(&key).expect("Fail to save key");
-        println!("OPENAI_API_KEY saved");
-        return Ok(());
-    }
+    let key = args.key;
     let mut cfg = load_config().unwrap_or_else(|| LlmConfig {
         engine: "openai".to_string(),
         model: "gpt-4-turbo".to_string(),
+        openai_key: None,
+        gemini_key: None,
     });
     if let Some(engine) = args.engine {
-        cfg.engine = engine;
+        cfg.engine = engine.trim().to_lowercase();
     }
     if let Some(model) = args.model {
-        cfg.model = model;
+        cfg.model = model.trim().to_lowercase();
     }
-    save_config(&cfg)?;
-    let key = if cfg.engine == "openai" {
-        load_key().unwrap_or_else(|| {
-            eprintln!("No valid OPENAI_API_KEY detected");
-            std::process::exit(1);
-        })
-    } else {
-        String::new()
-    };
-    unsafe { std::env::set_var("OPENAI_API_KEY", key) };
+    if let Some(key) = key {
+        if cfg.engine == "openai" {
+            cfg.openai_key = Some(key.clone());
+        } else if cfg.engine == "google" {
+            cfg.gemini_key = Some(key.clone());
+        }
+    }
+
+    let _ = save_config(&cfg);
+
     if let Some(man_cmd) = args.man {
+        if cfg.engine == "openai" {
+            unsafe { std::env::set_var("OPENAI_API_KEY", cfg.openai_key.unwrap()) };
+        } else if cfg.engine == "google" {
+            unsafe { std::env::set_var("GEMINI_API_KEY", cfg.gemini_key.unwrap()) };
+        }
         let raw = fetch_man_page(&man_cmd).expect("Fail to get man page info");
         let spinner = ProgressBar::new_spinner();
         spinner.set_message("Generating improved man page…");
@@ -186,7 +179,13 @@ async fn main() -> io::Result<()> {
             );
         let reformatted = match cfg.engine.as_str() {
             "ollama" => get_ollama_response(&prompt, &cfg.model).await,
-            "openai" | _ => get_gpt_response(&prompt, &cfg.model),
+            "openai" => get_gpt_response(&prompt, &cfg.model),
+            "google" => get_google_response(&prompt).await,
+            _ => {
+                spinner.finish_and_clear();
+                println!("Unsupported engine: {}", cfg.engine);
+                return Err(());
+            }
         };
         spinner.finish_and_clear();
         println!("{}", reformatted);
