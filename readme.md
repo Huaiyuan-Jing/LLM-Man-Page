@@ -56,14 +56,14 @@ Tips: run `./install.sh --help` to explore more options
 
 ### 2. Configure Engine and Model
 
-Set the LLM service, replace `<name-of-service>` with 'openai' or 'ollama':
+Set the LLM service, replace `<name-of-service>` with 'openai', 'ollama' or "google":
 
 ```sh
 llman --engine <name-of-service>
 
 ```
 
-Set the model, replace `<name-of-model>` with the model that your service support, like 'gpt-4-turbo' for 'openai'
+Set the model, replace `<name-of-model>` with the model that your service support, like 'gpt-4-turbo' for 'openai' ("google" engine does not support to choose different model, so if you use "google" as engine this setting will be ignored)
 
 ```sh
 llman --model <name-of-model>
