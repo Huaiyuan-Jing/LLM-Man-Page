@@ -85,6 +85,12 @@ llman cat
 llman grep
 ```
 
+Use `-c` to add your own prompt based on the man page:
+
+```sh
+llman -c "I have a checksum.txt.asc file and checksum.txt file. Now I want to verify the integrity of the file with gpg" gpg
+```
+
 Result: Directly outputs a more readable man page for the command.
 
 ### 4. Uninstall
