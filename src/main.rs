@@ -159,9 +159,35 @@ async fn main() -> Result<(), ()> {
 
     if let Some(man_cmd) = args.man {
         if cfg.engine == "openai" {
-            unsafe { std::env::set_var("OPENAI_API_KEY", cfg.openai_key.unwrap()) };
+            unsafe {
+                std::env::set_var(
+                    "OPENAI_API_KEY",
+                    match cfg.openai_key {
+                        Some(ref key) => key.clone(),
+                        None => {
+                            println!(
+                                "OpenAI API key is not set. Please set it using --key option or in the config file."
+                            );
+                            return Err(());
+                        }
+                    },
+                )
+            };
         } else if cfg.engine == "google" {
-            unsafe { std::env::set_var("GEMINI_API_KEY", cfg.gemini_key.unwrap()) };
+            unsafe {
+                std::env::set_var(
+                    "GEMINI_API_KEY",
+                    match cfg.gemini_key {
+                        Some(ref key) => key.clone(),
+                        None => {
+                            println!(
+                                "Gemini API key is not set. Please set it using --key option or in the config file."
+                            );
+                            return Err(());
+                        }
+                    },
+                )
+            };
         }
         let raw = fetch_man_page(&man_cmd).expect("Fail to get man page info");
         let spinner = ProgressBar::new_spinner();
