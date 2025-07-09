@@ -223,7 +223,8 @@ async fn main() -> Result<(), ()> {
                 "Here is the man page for {}: [{}]\n
                 Use the previous man page to solve the following task: {}\n
                 If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.\n
-                Directly return the content without any other useless information. Do not include any additional text after your response.\n",
+                Explain all the options and arguments used in your answer by referencing the related man page content.\n
+                Directly return the content without any other useless information. Do not include any markdown format in response. Do not include any additional text after your response.\n",
                 man_cmd, raw, prompt
             ),
         };
