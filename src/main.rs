@@ -29,6 +29,9 @@ struct Args {
     /// Set model name for LLM, e.g. 'gpt-4-turbo' or 'llama3'
     #[arg(long)]
     model: Option<String>,
+    /// Extra info
+    #[arg(short, long)]
+    custom_prompt: Option<String>,
     /// Command you want to check
     man: Option<String>,
 }
@@ -206,15 +209,24 @@ async fn main() -> Result<(), ()> {
         spinner.set_message("Generating improved man page…");
         spinner.enable_steady_tick(std::time::Duration::from_millis(100));
         spinner.set_style(ProgressStyle::with_template("{spinner:.green} {msg}").unwrap());
-        let prompt = format!(
-            "Here is the man page for {}: [{}]\n
-            1. rewrite the explanation part of each command, remember don't change any other content.\n
-            2. add example of usage after explaination of commands.\n
-            3. double check to make sure you contains all the commands and explain them correctly.\n
-            If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.\n
-            Directly return the content without any other useless information. Do not include any additional text after your response.\n",
-                man_cmd, raw
-            );
+        let prompt = match args.custom_prompt {
+            None => format!(
+                "Here is the man page for {}: [{}]\n
+                1. rewrite the explanation part of each command, remember don't change any other content.\n
+                2. add example of usage after explaination of commands.\n
+                3. double check to make sure you contains all the commands and explain them correctly.\n
+                If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.\n
+                Directly return the content without any other useless information. Do not include any additional text after your response.\n",
+                    man_cmd, raw
+            ),
+            Some(prompt) => format!(
+                "Here is the man page for {}: [{}]\n
+                Use the previous man page to solve the following task: {}\n
+                If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.\n
+                Directly return the content without any other useless information. Do not include any additional text after your response.\n",
+                man_cmd, raw, prompt
+            ),
+        };
         let reformatted = match cfg.engine.as_str() {
             "ollama" => get_ollama_response(&prompt, &cfg.model).await,
             "openai" => get_gpt_response(&prompt, &cfg.model),
