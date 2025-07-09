@@ -10,7 +10,7 @@ It automatically fetches the official man page for any command and uses GPT to r
 ## ✨ Features
 
 - Supports most Linux commands (no need for local man pages)
-- Uses OpenAI GPT to rewrite documentation for improved readability
+- Uses OpenAI GPT / Google Gemini / Ollama Local model to rewrite documentation for improved readability
 - Custom prompts/questions supported
 - API Key securely stored on your machine
 - Works on Linux and macOS (Rust required)
