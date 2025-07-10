@@ -194,6 +194,7 @@ Expire-Date: 0
         .arg("--gen-key")
         .arg("--batch")
         .arg(temp.to_str().unwrap())
+        .env("DISPLAY", "")
         .status()
         .expect("Failed to run gpg key generator.");
     
