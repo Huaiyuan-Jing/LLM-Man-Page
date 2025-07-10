@@ -222,6 +222,7 @@ fn xcrypt_config_str(s: String, args: &[&str]) -> String {
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .env("DISPLAY", "")
         .spawn()
         .expect("Failed to start gpg encrypt / decrypt command");
 
