@@ -91,5 +91,9 @@ else
     else
         cargo uninstall llman
     fi
+    if [[ -d ~/.llman ]]
+    then
+        rm -rf ~/.llman
+    fi
     echo "Uninstallation completed."
 fi
