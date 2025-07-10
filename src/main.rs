@@ -122,8 +122,7 @@ fn get_app_folder() -> PathBuf {
     path
 }
 
-fn make_app_folder() -> io::Result<()> {
-    let path = get_app_folder();
+fn make_folder(path: PathBuf) -> io::Result<()> {
     if !path.exists() {
         match fs::create_dir(path) {
             Ok(()) => return Ok(()),
@@ -131,7 +130,7 @@ fn make_app_folder() -> io::Result<()> {
         }
     }
 
-    // file exist, test if it's a diri
+    // file exist, test if it's a dir
     if path.is_dir() {
         Ok(())
     } else {
@@ -142,10 +141,76 @@ fn make_app_folder() -> io::Result<()> {
     }
 }
 
+fn get_gpg_folder() -> PathBuf {
+    let mut path = get_app_folder();
+    path.push("gpgkey");
+    path
+}
+
+fn gpg_key_exist() -> bool {
+    // get gpg dir
+    let gpg_home = get_gpg_folder();
+
+    let status_code = Command::new("gpg")
+        .arg("--homedir")
+        .arg(gpg_home.to_str().unwrap())
+        .arg("--list-secret-keys")
+        .arg("llman@nonexist.com")
+        .status()
+        .expect("Failed to invoke gpg --list-secret-keys");
+
+    status_code.success()
+}
+
+fn gen_gpg_key() -> io::Result<()> {
+    // make config file
+    let conf = format!(
+        r#"
+%echo Generating ECC GPG key
+Key-Type: eddsa
+Key-Curve: ed25519
+Subkey-Type: ecdh
+Subkey-Curve: cv25519
+Name-Real: llman
+Name-Email: llman@nonexist.com
+Expire-Date: 0
+%commit
+%echo Done
+"#,
+    );
+
+    let mut temp = std::env::temp_dir();
+    temp.push("gpg-conf");
+    fs::write(&temp, conf).unwrap();
+
+    // use customized gpg home dir
+    let gpg_home = get_gpg_folder();
+
+    let exit_status = Command::new("gpg")
+        .arg("--homedir")
+        .arg(gpg_home.to_str().unwrap())
+        .arg("--gen-key")
+        .arg("--batch")
+        .arg(temp.to_str().unwrap())
+        .status()
+        .expect("Failed to run gpg key generator.");
+    
+    if !exit_status.success() {
+        panic!("Failed to generate gpg key pairs.");
+    } else {
+        Ok(())
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), ()> {
     // make app folder first
-    make_app_folder().unwrap();
+    let app_folder_path = get_app_folder();
+    make_folder(app_folder_path).unwrap();
+
+    // make gpg folder second
+    let gpg_folder_path = get_gpg_folder();
+    make_folder(gpg_folder_path).unwrap();
 
     // then parse cmdline args
     let args = Args::parse();
