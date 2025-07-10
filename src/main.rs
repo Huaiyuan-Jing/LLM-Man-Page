@@ -8,9 +8,9 @@ use openai_api_rust::chat::*;
 use openai_api_rust::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -105,15 +105,17 @@ fn get_config_file() -> PathBuf {
 
 fn save_config(cfg: &LlmConfig) -> io::Result<()> {
     let path = get_config_file();
-    let s = serde_json::to_string_pretty(cfg).unwrap();
-    fs::write(&path, s)?;
+    let plain_text = serde_json::to_string_pretty(cfg).unwrap();
+    let encrypted_str = encrypt_config_str(plain_text);
+    fs::write(&path, encrypted_str)?;
     Ok(())
 }
 
 fn load_config() -> Option<LlmConfig> {
     let path = get_config_file();
-    let s = fs::read_to_string(path).ok()?;
-    serde_json::from_str(&s).ok()
+    let encrypted_str = fs::read_to_string(path).ok()?;
+    let decrypted_str = decrypt_config_str(encrypted_str);
+    serde_json::from_str(&decrypted_str).ok()
 }
 
 fn get_app_folder() -> PathBuf {
@@ -202,17 +204,56 @@ Expire-Date: 0
     }
 }
 
+fn decrypt_config_str(s: String) -> String {
+    let gpg_home = get_gpg_folder();
+    let args = ["--homedir", gpg_home.to_str().unwrap(), "--decrypt"];
+    xcrypt_config_str(s, &args)
+}
+
+fn encrypt_config_str(s: String) -> String {
+    let gpg_home = get_gpg_folder();
+    let args = ["--homedir", gpg_home.to_str().unwrap(), "--armor" , "--recipient", "llman@nonexist.com", "--encrypt"];
+    xcrypt_config_str(s, &args)
+}
+
+fn xcrypt_config_str(s: String, args: &[&str]) -> String {
+    let mut gpg = Command::new("gpg")
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Failed to start gpg encrypt / decrypt command");
+
+    {
+        let stdin = gpg.stdin.as_mut().expect("Failed to open stdin of gpg encrypt / decrypt command");
+        stdin.write_all(s.as_bytes()).expect("Failed to write input to stdin of gpg encrypt / decrypt command");
+    }
+
+    let output = gpg.wait_with_output().expect("Failed to read gpg output.");
+
+    if !output.status.success() {
+        panic!("gpg encrypt / decrypt operation failed: {}", String::from_utf8_lossy(&output.stderr));
+    }
+
+    String::from_utf8_lossy(&output.stdout).trim().to_string()
+}
+
 #[tokio::main]
 async fn main() -> Result<(), ()> {
-    // make app folder first
+    // 1. make app folder
     let app_folder_path = get_app_folder();
     make_folder(app_folder_path).unwrap();
 
-    // make gpg folder second
+    // 2. make gpg folder second
     let gpg_folder_path = get_gpg_folder();
     make_folder(gpg_folder_path).unwrap();
 
-    // then parse cmdline args
+    // 3. create gpg key to protect api keys in config file
+    if !gpg_key_exist() {
+        gen_gpg_key().unwrap();
+    }
+
+    // 4. start business logic
     let args = Args::parse();
     let key = args.key;
     let mut cfg = load_config().unwrap_or_else(|| LlmConfig {
