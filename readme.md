@@ -103,7 +103,7 @@ If you installed only for the current user, run:
 ./install.sh --uninstall
 ```
 
-`llman` will be removed from `~/.cargo/bin/`
+`llman` binary will be removed from `~/.cargo/bin/`, and `.llman` will be removed from user's home folder.
 
 If you installed for all users, run (requires root privilege):
 
