@@ -82,15 +82,15 @@ pub async fn get_google_response(prompt: &String) -> String {
     response.text()
 }
 
-fn fetch_man_page(cmd: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let man_output = Command::new("man").arg(cmd).output()?;
+fn fetch_man_page(cmd: &str) -> Result<String, String> {
+    let man_output = Command::new("man").arg(cmd).output().unwrap();
     if !man_output.status.success() {
-        return Err(format!("Failed to get man page for {}", cmd).into());
+        return Err(format!("Failed to get man page for {}", cmd));
     }
     Ok(String::from_utf8_lossy(&man_output.stdout).to_string())
 }
 
-pub async fn gen_man_page(cfg: &LlmConfig, man_cmd: &String, custom_prompt: Option<String>) -> Result<String, ()> {
+pub async fn gen_man_page(cfg: &LlmConfig, man_cmd: &String, custom_prompt: Option<String>) -> Result<String, String> {
     setup_key(&cfg).unwrap();
     let raw = fetch_man_page(&man_cmd).expect("Fail to get man page info");
     let spinner = ProgressBar::new_spinner();
@@ -123,8 +123,7 @@ pub async fn gen_man_page(cfg: &LlmConfig, man_cmd: &String, custom_prompt: Opti
         "google" => get_google_response(&prompt).await,
         _ => {
             spinner.finish_and_clear();
-            println!("Unsupported engine: {}", cfg.engine);
-            return Err(());
+            return Err(format!("Unsupported engine: {}", cfg.engine));
         }
     };
     spinner.finish_and_clear();
