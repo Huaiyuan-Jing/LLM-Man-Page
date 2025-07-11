@@ -8,7 +8,7 @@ use std::process::Command;
 
 use crate::encrypt::LlmConfig;
 
-pub fn setup_key(cfg: &LlmConfig) -> Result<(), &str> {
+fn setup_key(cfg: &LlmConfig) -> Result<(), &str> {
     if cfg.engine == "openai" {
         unsafe {
             std::env::set_var(
@@ -37,13 +37,13 @@ pub fn setup_key(cfg: &LlmConfig) -> Result<(), &str> {
     Ok(())
 }
 
-pub async fn get_ollama_response(prompt: &String, model: &String) -> String {
+async fn get_ollama_response(prompt: &String, model: &String) -> String {
     let ollama = Ollama::default();
     let res = ollama.generate(GenerationRequest::new(model.clone(), prompt));
     res.await.unwrap().response
 }
 
-pub fn get_gpt_response(prompt: &String, model: &String) -> String {
+fn get_gpt_response(prompt: &String, model: &String) -> String {
     let auth = Auth::from_env().unwrap();
     let openai = OpenAI::new(auth, "https://api.openai.com/v1/");
     let body = ChatBody {
@@ -69,7 +69,7 @@ pub fn get_gpt_response(prompt: &String, model: &String) -> String {
     message.content.clone()
 }
 
-pub async fn get_google_response(prompt: &String) -> String {
+async fn get_google_response(prompt: &String) -> String {
     let client = Gemini::new(&std::env::var("GEMINI_API_KEY").unwrap());
 
     let response = client
@@ -90,7 +90,11 @@ fn fetch_man_page(cmd: &str) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&man_output.stdout).to_string())
 }
 
-pub async fn gen_man_page(cfg: &LlmConfig, man_cmd: &String, custom_prompt: Option<String>) -> Result<String, String> {
+pub async fn gen_man_page(
+    cfg: &LlmConfig,
+    man_cmd: &String,
+    custom_prompt: Option<String>,
+) -> Result<String, String> {
     setup_key(&cfg).unwrap();
     let raw = fetch_man_page(&man_cmd).expect("Fail to get man page info");
     let spinner = ProgressBar::new_spinner();

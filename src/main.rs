@@ -1,5 +1,8 @@
-use crate::encrypt::*;
-use crate::llm::*;
+use crate::encrypt::{
+    LlmConfig, gen_gpg_key, get_app_folder, get_gpg_folder, gpg_key_exist, load_config,
+    make_folder, save_config,
+};
+use crate::llm::gen_man_page;
 use clap::Parser;
 mod encrypt;
 mod llm;
