@@ -1,16 +1,13 @@
 use clap::Parser;
-use gemini_rust::Gemini;
 use home;
 use indicatif::{ProgressBar, ProgressStyle};
-use ollama_rs::Ollama;
-use ollama_rs::generation::completion::request::GenerationRequest;
-use openai_api_rust::chat::*;
-use openai_api_rust::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+
+mod llm;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -34,51 +31,6 @@ struct Args {
     custom_prompt: Option<String>,
     /// Command you want to check
     man: Option<String>,
-}
-
-async fn get_ollama_response(prompt: &String, model: &String) -> String {
-    let ollama = Ollama::default();
-    let res = ollama.generate(GenerationRequest::new(model.clone(), prompt));
-    res.await.unwrap().response
-}
-
-fn get_gpt_response(prompt: &String, model: &String) -> String {
-    let auth = Auth::from_env().unwrap();
-    let openai = OpenAI::new(auth, "https://api.openai.com/v1/");
-    let body = ChatBody {
-        model: model.clone(),
-        max_tokens: None,
-        temperature: Some(0.2_f32),
-        top_p: Some(0.1_f32),
-        n: Some(2),
-        stream: Some(false),
-        stop: None,
-        presence_penalty: None,
-        frequency_penalty: None,
-        logit_bias: None,
-        user: None,
-        messages: vec![openai_api_rust::Message {
-            role: openai_api_rust::Role::User,
-            content: prompt.clone(),
-        }],
-    };
-    let rs = openai.chat_completion_create(&body);
-    let choice = rs.unwrap().choices;
-    let message = &choice[0].message.as_ref().unwrap();
-    message.content.clone()
-}
-
-async fn get_google_response(prompt: &String) -> String {
-    let client = Gemini::new(&std::env::var("GEMINI_API_KEY").unwrap());
-
-    let response = client
-        .generate_content()
-        .with_system_prompt("You are a helpful assistant.")
-        .with_user_message(prompt.clone())
-        .execute()
-        .await
-        .unwrap();
-    response.text()
 }
 
 fn fetch_man_page(cmd: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -197,7 +149,7 @@ Expire-Date: 0
         .env("DISPLAY", "")
         .status()
         .expect("Failed to run gpg key generator.");
-    
+
     if !exit_status.success() {
         panic!("Failed to generate gpg key pairs.");
     } else {
@@ -213,7 +165,14 @@ fn decrypt_config_str(s: String) -> String {
 
 fn encrypt_config_str(s: String) -> String {
     let gpg_home = get_gpg_folder();
-    let args = ["--homedir", gpg_home.to_str().unwrap(), "--armor" , "--recipient", "llman@nonexist.com", "--encrypt"];
+    let args = [
+        "--homedir",
+        gpg_home.to_str().unwrap(),
+        "--armor",
+        "--recipient",
+        "llman@nonexist.com",
+        "--encrypt",
+    ];
     xcrypt_config_str(s, &args)
 }
 
@@ -227,14 +186,22 @@ fn xcrypt_config_str(s: String, args: &[&str]) -> String {
         .expect("Failed to start gpg encrypt / decrypt command");
 
     {
-        let stdin = gpg.stdin.as_mut().expect("Failed to open stdin of gpg encrypt / decrypt command");
-        stdin.write_all(s.as_bytes()).expect("Failed to write input to stdin of gpg encrypt / decrypt command");
+        let stdin = gpg
+            .stdin
+            .as_mut()
+            .expect("Failed to open stdin of gpg encrypt / decrypt command");
+        stdin
+            .write_all(s.as_bytes())
+            .expect("Failed to write input to stdin of gpg encrypt / decrypt command");
     }
 
     let output = gpg.wait_with_output().expect("Failed to read gpg output.");
 
     if !output.status.success() {
-        panic!("gpg encrypt / decrypt operation failed: {}", String::from_utf8_lossy(&output.stderr));
+        panic!(
+            "gpg encrypt / decrypt operation failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     String::from_utf8_lossy(&output.stdout).trim().to_string()
@@ -338,9 +305,9 @@ async fn main() -> Result<(), ()> {
             ),
         };
         let reformatted = match cfg.engine.as_str() {
-            "ollama" => get_ollama_response(&prompt, &cfg.model).await,
-            "openai" => get_gpt_response(&prompt, &cfg.model),
-            "google" => get_google_response(&prompt).await,
+            "ollama" => llm::get_ollama_response(&prompt, &cfg.model).await,
+            "openai" => llm::get_gpt_response(&prompt, &cfg.model),
+            "google" => llm::get_google_response(&prompt).await,
             _ => {
                 spinner.finish_and_clear();
                 println!("Unsupported engine: {}", cfg.engine);
