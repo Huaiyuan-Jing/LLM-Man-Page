@@ -1,8 +1,41 @@
 use gemini_rust::Gemini;
+use indicatif::{ProgressBar, ProgressStyle};
 use ollama_rs::Ollama;
 use ollama_rs::generation::completion::request::GenerationRequest;
 use openai_api_rust::chat::*;
 use openai_api_rust::*;
+use std::process::Command;
+
+use crate::encrypt::LlmConfig;
+
+pub fn setup_key(cfg: &LlmConfig) -> Result<(), &str> {
+    if cfg.engine == "openai" {
+        unsafe {
+            std::env::set_var(
+                "OPENAI_API_KEY",
+                match cfg.openai_key {
+                    Some(ref key) => key.clone(),
+                    None => {
+                        return Err("OpenAI API key is not set. Please set it using --key option.");
+                    }
+                },
+            )
+        };
+    } else if cfg.engine == "google" {
+        unsafe {
+            std::env::set_var(
+                "GEMINI_API_KEY",
+                match cfg.gemini_key {
+                    Some(ref key) => key.clone(),
+                    None => {
+                        return Err("Gemini API key is not set. Please set it using --key option");
+                    }
+                },
+            )
+        };
+    }
+    Ok(())
+}
 
 pub async fn get_ollama_response(prompt: &String, model: &String) -> String {
     let ollama = Ollama::default();
@@ -47,4 +80,53 @@ pub async fn get_google_response(prompt: &String) -> String {
         .await
         .unwrap();
     response.text()
+}
+
+fn fetch_man_page(cmd: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let man_output = Command::new("man").arg(cmd).output()?;
+    if !man_output.status.success() {
+        return Err(format!("Failed to get man page for {}", cmd).into());
+    }
+    Ok(String::from_utf8_lossy(&man_output.stdout).to_string())
+}
+
+pub async fn gen_man_page(cfg: &LlmConfig, man_cmd: &String, custom_prompt: Option<String>) -> Result<String, ()> {
+    setup_key(&cfg).unwrap();
+    let raw = fetch_man_page(&man_cmd).expect("Fail to get man page info");
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_message("Generating improved man page…");
+    spinner.enable_steady_tick(std::time::Duration::from_millis(100));
+    spinner.set_style(ProgressStyle::with_template("{spinner:.green} {msg}").unwrap());
+    let prompt = match custom_prompt {
+            None => format!(
+                "Here is the man page for {}: [{}]\n
+                1. rewrite the explanation part of each command, remember don't change any other content.\n
+                2. add example of usage after explaination of commands.\n
+                3. double check to make sure you contains all the commands and explain them correctly.\n
+                If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.\n
+                Directly return the content without any other useless information. Do not include any additional text after your response.\n",
+                    man_cmd, raw
+            ),
+            Some(prompt) => format!(
+                "Here is the man page for {}: [{}]\n
+                Use the previous man page to solve the following task: {}\n
+                If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.\n
+                Explain all the options and arguments used in your answer by referencing the related man page content.\n
+                Do not include any markdown format in response.\n
+                Directly return the content without any other useless information. Do not include any additional text after your response.\n",
+                man_cmd, raw, prompt
+            ),
+        };
+    let reformatted = match cfg.engine.as_str() {
+        "ollama" => get_ollama_response(&prompt, &cfg.model).await,
+        "openai" => get_gpt_response(&prompt, &cfg.model),
+        "google" => get_google_response(&prompt).await,
+        _ => {
+            spinner.finish_and_clear();
+            println!("Unsupported engine: {}", cfg.engine);
+            return Err(());
+        }
+    };
+    spinner.finish_and_clear();
+    Ok(reformatted)
 }
