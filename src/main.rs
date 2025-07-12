@@ -75,6 +75,6 @@ async fn main() -> Result<(), ()> {
                 .unwrap()
         );
     }
-    let _ = save_config(&cfg);
+    save_config(&cfg).unwrap();
     Ok(())
 }
