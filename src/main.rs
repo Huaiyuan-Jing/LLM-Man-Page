@@ -25,6 +25,9 @@ struct Args {
     /// Extra info
     #[arg(short, long)]
     custom_prompt: Option<String>,
+    /// Reset all or specific command buffer, e.g. 'llman --reset' to reset all buffer, 'llman --reset cat' to reset buffer of cat command
+    #[arg(long)]
+    reset: Option<Option<String>>,
     /// Command you want to check
     man: Option<String>,
 }
@@ -39,6 +42,17 @@ async fn main() -> Result<(), ()> {
         buffer: HashMap::new(),
     });
     let args = Args::parse();
+    if let Some(reset) = args.reset {
+        match reset {
+            None => {
+                cfg.reset_all_buffer();
+                println!("All buffers cleared.");
+            }
+            Some(key) => {
+                cfg.reset_buffer_key(&key);
+            }
+        }
+    }
     let key = args.key;
     if let Some(engine) = args.engine {
         cfg.engine = engine.trim().to_lowercase();

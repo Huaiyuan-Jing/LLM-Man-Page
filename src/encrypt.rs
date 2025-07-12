@@ -18,6 +18,16 @@ pub struct LlmConfig {
     pub gemini_key: Option<String>, // Gemini API key, if using Gemini
     pub buffer: HashMap<String, HashMap<String, String>>, // store past generation result
 }
+impl LlmConfig {
+    pub fn reset_all_buffer(&mut self) {
+        self.buffer.clear();
+    }
+    pub fn reset_buffer_key(&mut self, key: &str) {
+        for (_, dict) in &mut self.buffer {
+            dict.remove(key);
+        }
+    }
+}
 
 fn make_folder(path: &PathBuf) -> Result<(), String> {
     if !path.exists() {
