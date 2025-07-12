@@ -1,7 +1,4 @@
-use crate::encrypt::{
-    LlmConfig, gen_gpg_key, get_app_folder, get_gpg_folder, gpg_key_exist, load_config,
-    make_folder, save_config,
-};
+use crate::encrypt::{LlmConfig, load_config, save_config};
 use crate::llm::gen_man_page;
 use clap::Parser;
 mod encrypt;
@@ -33,28 +30,14 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), ()> {
-    // 1. make app folder
-    let app_folder_path = get_app_folder();
-    make_folder(app_folder_path).unwrap();
-
-    // 2. make gpg folder second
-    let gpg_folder_path = get_gpg_folder();
-    make_folder(gpg_folder_path).unwrap();
-
-    // 3. create gpg key to protect api keys in config file
-    if !gpg_key_exist() {
-        gen_gpg_key().unwrap();
-    }
-
-    // 4. start business logic
-    let args = Args::parse();
-    let key = args.key;
-    let mut cfg = load_config().unwrap_or_else(|| LlmConfig {
+    let mut cfg = load_config().unwrap_or_else(|_| LlmConfig {
         engine: "openai".to_string(),
         model: "gpt-4-turbo".to_string(),
         openai_key: None,
         gemini_key: None,
     });
+    let args = Args::parse();
+    let key = args.key;
     if let Some(engine) = args.engine {
         cfg.engine = engine.trim().to_lowercase();
     }
