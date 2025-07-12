@@ -99,7 +99,7 @@ pub async fn gen_man_page(
     setup_key(&cfg).unwrap();
     if !cfg.buffer.contains_key(&cfg.model) {
         cfg.buffer.insert(cfg.model.clone(), HashMap::new());
-    } else if cfg.buffer.get(&cfg.model).unwrap().contains_key(man_cmd) {
+    } else if cfg.buffer.get(&cfg.model).unwrap().contains_key(man_cmd) && custom_prompt.is_none() {
         return Ok(cfg
             .buffer
             .get(&cfg.model)
@@ -113,7 +113,7 @@ pub async fn gen_man_page(
     spinner.set_message("Generating improved man page…");
     spinner.enable_steady_tick(std::time::Duration::from_millis(100));
     spinner.set_style(ProgressStyle::with_template("{spinner:.green} {msg}").unwrap());
-    let prompt = match custom_prompt {
+    let prompt = match custom_prompt.clone() {
             None => format!(
                 "Here is the man page for {}: [{}]\n
                 1. rewrite the explanation part of each command, remember don't change any other content.\n
@@ -143,9 +143,11 @@ pub async fn gen_man_page(
         }
     };
     spinner.finish_and_clear();
-    cfg.buffer
-        .get_mut(&cfg.model)
-        .unwrap()
-        .insert(man_cmd.clone(), reformatted.clone());
+    if custom_prompt.is_none() {
+        cfg.buffer
+            .get_mut(&cfg.model)
+            .unwrap()
+            .insert(man_cmd.clone(), reformatted.clone());
+    }
     Ok(reformatted)
 }
