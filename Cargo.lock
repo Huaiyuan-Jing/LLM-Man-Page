@@ -781,9 +781,9 @@ dependencies = [
 
 [[package]]
 name = "gemini-rust"
-version = "0.6.0"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11a743c3d435598931ec6c455a24660ff75bac370f89b07e9d061544895aae9f"
+checksum = "c318792b82e5c4442abe40bc8f019c8a5a5d7b1550f68b1671ad681a8c333bfc"
 dependencies = [
  "async-trait",
  "base64",
