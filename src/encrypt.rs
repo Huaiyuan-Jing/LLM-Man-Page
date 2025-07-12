@@ -7,15 +7,16 @@ use home;
 use keyring::Entry;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::PathBuf;
+use std::{collections::HashMap, fs};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LlmConfig {
-    pub engine: String,             // "openai" or "ollama"
+    pub engine: String,                                   // "openai" or "ollama"
     pub model: String,              // model name, e.g. "gpt-4-turbo", "llama3"
     pub openai_key: Option<String>, // OpenAI API key, if using OpenAI
     pub gemini_key: Option<String>, // Gemini API key, if using Gemini
+    pub buffer: HashMap<String, HashMap<String, String>>, // store past generation result
 }
 
 fn make_folder(path: &PathBuf) -> Result<(), String> {

@@ -4,6 +4,7 @@ use ollama_rs::Ollama;
 use ollama_rs::generation::completion::request::GenerationRequest;
 use openai_api_rust::chat::*;
 use openai_api_rust::*;
+use std::collections::HashMap;
 use std::process::Command;
 
 use crate::encrypt::LlmConfig;
@@ -91,11 +92,22 @@ fn fetch_man_page(cmd: &str) -> Result<String, String> {
 }
 
 pub async fn gen_man_page(
-    cfg: &LlmConfig,
+    cfg: &mut LlmConfig,
     man_cmd: &String,
     custom_prompt: Option<String>,
 ) -> Result<String, String> {
     setup_key(&cfg).unwrap();
+    if !cfg.buffer.contains_key(&cfg.model) {
+        cfg.buffer.insert(cfg.model.clone(), HashMap::new());
+    } else if cfg.buffer.get(&cfg.model).unwrap().contains_key(man_cmd) {
+        return Ok(cfg
+            .buffer
+            .get(&cfg.model)
+            .unwrap()
+            .get(man_cmd)
+            .unwrap()
+            .clone());
+    }
     let raw = fetch_man_page(&man_cmd).expect("Fail to get man page info");
     let spinner = ProgressBar::new_spinner();
     spinner.set_message("Generating improved man page…");
@@ -131,5 +143,9 @@ pub async fn gen_man_page(
         }
     };
     spinner.finish_and_clear();
+    cfg.buffer
+        .get_mut(&cfg.model)
+        .unwrap()
+        .insert(man_cmd.clone(), reformatted.clone());
     Ok(reformatted)
 }

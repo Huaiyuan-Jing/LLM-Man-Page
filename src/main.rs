@@ -1,6 +1,7 @@
 use crate::encrypt::{LlmConfig, load_config, save_config};
 use crate::llm::gen_man_page;
 use clap::Parser;
+use std::collections::HashMap;
 mod encrypt;
 mod llm;
 
@@ -35,6 +36,7 @@ async fn main() -> Result<(), ()> {
         model: "gpt-4-turbo".to_string(),
         openai_key: None,
         gemini_key: None,
+        buffer: HashMap::new(),
     });
     let args = Args::parse();
     let key = args.key;
@@ -51,17 +53,14 @@ async fn main() -> Result<(), ()> {
             cfg.gemini_key = Some(key.clone());
         }
     }
-
-    let _ = save_config(&cfg);
-
     if let Some(man_cmd) = args.man {
         println!(
             "{}",
-            gen_man_page(&cfg, &man_cmd, args.custom_prompt)
+            gen_man_page(&mut cfg, &man_cmd, args.custom_prompt)
                 .await
                 .unwrap()
         );
-        return Ok(());
     }
+    let _ = save_config(&cfg);
     Ok(())
 }
