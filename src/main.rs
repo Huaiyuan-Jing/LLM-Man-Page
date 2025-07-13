@@ -1,6 +1,7 @@
-use crate::encrypt::{LlmConfig, load_config, save_config};
+use crate::encrypt::{load_config, save_config};
 use crate::llm::gen_man_page;
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 mod encrypt;
 mod llm;
@@ -30,6 +31,25 @@ struct Args {
     reset: Option<Option<String>>,
     /// Command you want to check
     man: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LlmConfig {
+    pub engine: String,                                   // "openai" or "ollama"
+    pub model: String,              // model name, e.g. "gpt-4-turbo", "llama3"
+    pub openai_key: Option<String>, // OpenAI API key, if using OpenAI
+    pub gemini_key: Option<String>, // Gemini API key, if using Gemini
+    pub buffer: HashMap<String, HashMap<String, String>>, // store past generation result
+}
+impl LlmConfig {
+    pub fn reset_all_buffer(&mut self) {
+        self.buffer.clear();
+    }
+    pub fn reset_buffer_key(&mut self, key: &str) {
+        for (_, dict) in &mut self.buffer {
+            dict.remove(key);
+        }
+    }
 }
 
 #[tokio::main]

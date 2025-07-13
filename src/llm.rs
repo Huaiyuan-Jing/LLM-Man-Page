@@ -1,3 +1,4 @@
+use crate::LlmConfig;
 use gemini_rust::Gemini;
 use indicatif::{ProgressBar, ProgressStyle};
 use ollama_rs::Ollama;
@@ -6,8 +7,6 @@ use openai_api_rust::chat::*;
 use openai_api_rust::*;
 use std::collections::HashMap;
 use std::process::Command;
-
-use crate::encrypt::LlmConfig;
 
 fn setup_key(cfg: &LlmConfig) -> Result<(), &str> {
     if cfg.engine == "openai" {

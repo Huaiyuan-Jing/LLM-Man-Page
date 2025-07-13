@@ -1,3 +1,4 @@
+use crate::LlmConfig;
 use base64::{Engine, engine::general_purpose};
 use chacha20poly1305::{
     Key, XChaCha20Poly1305, XNonce,
@@ -6,28 +7,8 @@ use chacha20poly1305::{
 use home;
 use keyring::Entry;
 use rand::RngCore;
-use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::PathBuf;
-use std::{collections::HashMap, fs};
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct LlmConfig {
-    pub engine: String,                                   // "openai" or "ollama"
-    pub model: String,              // model name, e.g. "gpt-4-turbo", "llama3"
-    pub openai_key: Option<String>, // OpenAI API key, if using OpenAI
-    pub gemini_key: Option<String>, // Gemini API key, if using Gemini
-    pub buffer: HashMap<String, HashMap<String, String>>, // store past generation result
-}
-impl LlmConfig {
-    pub fn reset_all_buffer(&mut self) {
-        self.buffer.clear();
-    }
-    pub fn reset_buffer_key(&mut self, key: &str) {
-        for (_, dict) in &mut self.buffer {
-            dict.remove(key);
-        }
-    }
-}
 
 fn make_folder(path: &PathBuf) -> Result<(), String> {
     if !path.exists() {
