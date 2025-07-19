@@ -19,7 +19,18 @@ It automatically fetches the official man page for any command and uses GPT to r
 
 ## 🚀 Quick Start
 
-### 1. Install
+### 1. Dependency
+
+On Ubuntu:
+```bash
+sudo apt install libdbus-1-dev pkg-config
+```
+On Fedora:
+```bash
+sudo dnf install dbus-devel pkgconf-pkg-config
+```
+
+### 2. Install
 
 **Note**: `install.sh` has only been tested on Fedora Workstation 42, but should work on other Linux distributions.
 
@@ -54,7 +65,7 @@ To install with debug info (can combine with `--system` option):
 
 Tips: run `./install.sh --help` to explore more options
 
-### 2. Configure Engine and Model
+### 3. Configure Engine and Model
 
 Set the LLM service, replace `<name-of-service>` with 'openai', 'ollama' or "google":
 
@@ -75,7 +86,7 @@ If you use 'openai' as LLM service, you need to setup your api key by following 
 llman --key <key>
 ```
 
-### 3. Usage
+### 4. Usage
 
 Query an LLM-enhanced man page
 
@@ -93,7 +104,7 @@ llman -c "I have a checksum.txt.asc file and checksum.txt file. Now I want to ve
 
 Result: Directly outputs a more readable man page for the command.
 
-### 4. Uninstall
+### 5. Uninstall
 
 We recommend you to work with `install.sh` to uninstall `llman`, if you have no idea about what happened during installation.
 
